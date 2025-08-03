@@ -1,0 +1,159 @@
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Firebase Browser</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #f4f4f4;
+      color: #333;
+    }
+    #loading-screen {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: #000;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 24px;
+      z-index: 9999;
+    }
+    .container {
+      padding: 20px;
+      max-width: 1000px;
+      margin: auto;
+    }
+    .search-bar {
+      display: flex;
+      margin-bottom: 20px;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 12px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 10px 0 0 10px;
+    }
+    button {
+      padding: 12px 20px;
+      background: #007bff;
+      color: #fff;
+      border: none;
+      font-size: 16px;
+      border-radius: 0 10px 10px 0;
+      cursor: pointer;
+    }
+    iframe {
+      width: 100%;
+      height: 70vh;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      background: white;
+    }
+    .history {
+      margin-top: 20px;
+    }
+    .history h3 {
+      margin-bottom: 10px;
+    }
+    .history ul {
+      list-style: none;
+      padding: 0;
+    }
+    .history li {
+      padding: 10px;
+      background: #e0e0e0;
+      border-radius: 5px;
+      margin-bottom: 5px;
+      cursor: pointer;
+    }
+    .history li:hover {
+      background: #d0d0d0;
+    }
+  </style>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+    import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-database.js";const firebaseConfig = {
+  apiKey: "AIzaSyBkbvMgi9zvVJG6mWTxBwh-9upwphmGXKs",
+  authDomain: "ai-app-860cd.firebaseapp.com",
+  databaseURL: "https://ai-app-860cd-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ai-app-860cd",
+  storageBucket: "ai-app-860cd.appspot.com",
+  messagingSenderId: "1036066616726",
+  appId: "1:1036066616726:web:6b7cf143cdd7f3081519b7",
+  measurementId: "G-TT4L3QNXLV"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const reqRef = ref(db, 'requests');
+
+const urlInput = document.getElementById('urlInput');
+const historyList = document.getElementById('historyList');
+const iframe = document.getElementById('browserFrame');
+
+function clearOldRequests() {
+  remove(reqRef);
+}
+
+function submitURL() {
+  let url = urlInput.value.trim();
+  if (!url.startsWith("http")) url = "https://" + url;
+
+  clearOldRequests();
+  const id = Date.now();
+  set(ref(db, 'requests/' + id), {
+    url: url,
+    status: 'pending',
+    timestamp: id
+  });
+}
+
+function addToHistory(id, url) {
+  const li = document.createElement('li');
+  li.textContent = url;
+  li.onclick = () => {
+    iframe.src = '/proxy?url=' + encodeURIComponent(url);
+  };
+  historyList.prepend(li);
+}
+
+onValue(reqRef, (snapshot) => {
+  const data = snapshot.val();
+  historyList.innerHTML = '';
+  if (data) {
+    Object.values(data).sort((a,b)=>b.timestamp - a.timestamp).forEach(entry => {
+      addToHistory(entry.timestamp, entry.url);
+    });
+  }
+});
+
+window.onload = () => {
+  setTimeout(() => {
+    document.getElementById('loading-screen').style.display = 'none';
+  }, 1000);
+}
+
+window.submitURL = submitURL;
+
+  </script>
+</head>
+<body>
+  <div id="loading-screen">🌐 Loading...</div>
+  <div class="container">
+    <div class="search-bar">
+      <input type="text" id="urlInput" placeholder="Enter a website URL...">
+      <button onclick="submitURL()">Search</button>
+    </div>
+    <iframe id="browserFrame"></iframe>
+    <div class="history">
+      <h3>History</h3>
+      <ul id="historyList"></ul>
+    </div>
+  </div>
+</body>
+</html>
