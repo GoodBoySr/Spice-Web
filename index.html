@@ -16,10 +16,7 @@
     }
     #loading {
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      top: 0; left: 0; right: 0; bottom: 0;
       background: white;
       display: flex;
       align-items: center;
@@ -34,9 +31,7 @@
       height: 60px;
       animation: spin 1s linear infinite;
     }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .search-box {
       margin: 20px;
       display: flex;
@@ -66,6 +61,7 @@
       border: 2px solid #3b82f6;
       border-radius: 12px;
       margin-bottom: 20px;
+      background: white;
     }
     #history {
       width: 90%;
@@ -76,17 +72,13 @@
       padding: 10px;
       margin-bottom: 20px;
     }
-    #history h3 {
-      margin-top: 0;
-    }
+    #history h3 { margin-top: 0; }
     .history-item {
       color: #2563eb;
       cursor: pointer;
       margin: 4px 0;
     }
-    .history-item:hover {
-      text-decoration: underline;
-    }
+    .history-item:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -94,10 +86,10 @@
 
   <div class="search-box">
     <input type="text" id="urlInput" placeholder="Enter website URL..." />
-    <button onclick="loadWebsite()">Go</button>
+    <button onclick="submitUrl()">Go</button>
   </div>
 
-  <iframe id="webView" src="https://www.google.com"></iframe>
+  <iframe id="webView" srcdoc="<p style='text-align:center;margin-top:20px;'>Enter a URL to begin...</p>"></iframe>
 
   <div id="history">
     <h3>History</h3>
@@ -117,6 +109,7 @@
       appId: "1:1036066616726:web:6b7cf143cdd7f3081519b7",
       measurementId: "G-TT4L3QNXLV"
     };
+
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
@@ -125,7 +118,6 @@
     const loading = document.getElementById("loading");
     const historyList = document.getElementById("historyList");
 
-    // Initial app loading screen
     window.onload = () => setTimeout(() => loading.style.display = "none", 1000);
 
     function sanitizeUrl(url) {
@@ -135,25 +127,29 @@
       return url;
     }
 
-    function loadWebsite() {
+    function submitUrl() {
       const rawUrl = input.value.trim();
       if (!rawUrl) return;
-      const url = sanitizeUrl(rawUrl);
 
-      // Show loader
+      const url = sanitizeUrl(rawUrl);
       loading.style.display = "flex";
 
-      // Update iframe
-      iframe.src = url;
+      const ref = db.ref("requests").push();
+      ref.set({ url, status: "pending", html: null });
 
-      // Save to Firebase (deletes previous first)
-      db.ref("latestURL").set(url);
+      ref.on("value", (snap) => {
+        const data = snap.val();
+        if (!data) return;
 
-      // Hide loader after iframe loads
-      iframe.onload = () => {
-        loading.style.display = "none";
-        addToHistory(url);
-      };
+        if (data.status === "done") {
+          iframe.srcdoc = data.html;
+          loading.style.display = "none";
+          addToHistory(url);
+        } else if (data.status === "error") {
+          iframe.srcdoc = `<p style="color:red;text-align:center;">Error: ${data.error}</p>`;
+          loading.style.display = "none";
+        }
+      });
     }
 
     function addToHistory(url) {
@@ -162,10 +158,10 @@
       item.textContent = url;
       item.onclick = () => {
         input.value = url;
-        loadWebsite();
+        submitUrl();
       };
       historyList.prepend(item);
     }
   </script>
 </body>
-</html>
+  </html>
