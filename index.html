@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Web Browser</title>
+  <title>AI Web Browser</title>
   <style>
     body {
       margin: 0;
@@ -32,6 +32,7 @@
       animation: spin 1s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+
     .search-box {
       margin: 20px;
       display: flex;
@@ -55,6 +56,20 @@
       border-radius: 0 8px 8px 0;
       cursor: pointer;
     }
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .dot.green { background: #10b981; }
+    .dot.red { background: #ef4444; }
+
     iframe {
       width: 90%;
       height: 70vh;
@@ -63,7 +78,8 @@
       margin-bottom: 20px;
       background: white;
     }
-    #history {
+
+    #history, #consoleLog {
       width: 90%;
       max-width: 600px;
       background: white;
@@ -72,13 +88,22 @@
       padding: 10px;
       margin-bottom: 20px;
     }
-    #history h3 { margin-top: 0; }
+    #history h3, #consoleLog strong { margin-top: 0; }
+
     .history-item {
       color: #2563eb;
       cursor: pointer;
       margin: 4px 0;
     }
     .history-item:hover { text-decoration: underline; }
+
+    #consoleLog {
+      background: #1f2937;
+      color: #d1d5db;
+      font-family: monospace;
+      overflow-y: auto;
+      max-height: 150px;
+    }
   </style>
 </head>
 <body>
@@ -89,11 +114,20 @@
     <button onclick="submitUrl()">Go</button>
   </div>
 
+  <div class="status-indicator">
+    <div id="statusDot" class="dot red"></div>
+    <span id="statusText">Backend not connected</span>
+  </div>
+
   <iframe id="webView" srcdoc="<p style='text-align:center;margin-top:20px;'>Enter a URL to begin...</p>"></iframe>
 
   <div id="history">
     <h3>History</h3>
     <div id="historyList"></div>
+  </div>
+
+  <div id="consoleLog">
+    <strong>Console:</strong><br>
   </div>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -117,8 +151,18 @@
     const input = document.getElementById("urlInput");
     const loading = document.getElementById("loading");
     const historyList = document.getElementById("historyList");
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
 
     window.onload = () => setTimeout(() => loading.style.display = "none", 1000);
+
+    function logConsole(msg) {
+      const div = document.getElementById("consoleLog");
+      const line = document.createElement("div");
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      div.appendChild(line);
+      div.scrollTop = div.scrollHeight;
+    }
 
     function sanitizeUrl(url) {
       if (!url.startsWith("http://") && !url.startsWith("https://")) {
@@ -133,8 +177,11 @@
 
       const url = sanitizeUrl(rawUrl);
       loading.style.display = "flex";
+      logConsole("Submitting URL: " + url);
 
       const ref = db.ref("requests").push();
+      const startTime = Date.now();
+
       ref.set({ url, status: "pending", html: null });
 
       ref.on("value", (snap) => {
@@ -145,9 +192,13 @@
           iframe.srcdoc = data.html;
           loading.style.display = "none";
           addToHistory(url);
+          logConsole("✅ Scraped content received");
+          updateStatus(Date.now() - startTime <= 15000);
         } else if (data.status === "error") {
           iframe.srcdoc = `<p style="color:red;text-align:center;">Error: ${data.error}</p>`;
           loading.style.display = "none";
+          logConsole("❌ Scrape error: " + data.error);
+          updateStatus(false);
         }
       });
     }
@@ -161,6 +212,18 @@
         submitUrl();
       };
       historyList.prepend(item);
+    }
+
+    function updateStatus(success) {
+      if (success) {
+        statusDot.classList.remove("red");
+        statusDot.classList.add("green");
+        statusText.textContent = "Backend connected";
+      } else {
+        statusDot.classList.remove("green");
+        statusDot.classList.add("red");
+        statusText.textContent = "Backend not responding";
+      }
     }
   </script>
 </body>
